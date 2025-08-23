@@ -601,6 +601,9 @@ function App() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                         Cliente
                       </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Ações
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-gray-800 divide-y divide-gray-700">
@@ -629,6 +632,15 @@ function App() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                           {transaction.cliente_nome || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <button
+                            onClick={() => handleDeleteTransaction(transaction.id)}
+                            className="text-red-400 hover:text-red-300 font-medium hover:bg-red-900 hover:bg-opacity-20 px-3 py-1 rounded-md transition-colors duration-200"
+                            title="Deletar transação"
+                          >
+                            🗑️ Deletar
+                          </button>
                         </td>
                       </tr>
                     ))}
