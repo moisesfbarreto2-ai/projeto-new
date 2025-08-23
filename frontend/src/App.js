@@ -209,6 +209,39 @@ function App() {
     }
   };
 
+  const handleDeleteTransaction = async (transactionId) => {
+    if (window.confirm('Tem certeza que deseja deletar esta transação?')) {
+      try {
+        await axios.delete(`${API}/transactions/${transactionId}`);
+        alert('Transação deletada com sucesso!');
+        
+        // Recarregar dados
+        loadDashboardData();
+        loadMonthlyReports();
+        loadTransactions();
+      } catch (error) {
+        console.error('Erro ao deletar transação:', error);
+        alert('Erro ao deletar transação!');
+      }
+    }
+  };
+
+  const handleDeleteClient = async (clientId) => {
+    if (window.confirm('Tem certeza que deseja deletar este cliente?')) {
+      try {
+        await axios.delete(`${API}/clients/${clientId}`);
+        alert('Cliente deletado com sucesso!');
+        
+        // Recarregar dados
+        loadClients();
+        loadDashboardData();
+      } catch (error) {
+        console.error('Erro ao deletar cliente:', error);
+        alert('Erro ao deletar cliente!');
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
