@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,10 +6,20 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 import uuid
-from datetime import datetime
+from datetime import datetime, date
+from enum import Enum
+import locale
 
+# Configurar locale para UTF-8
+try:
+    locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
+except:
+    try:
+        locale.setlocale(locale.LC_ALL, 'C.UTF-8')
+    except:
+        pass
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -25,32 +35,323 @@ app = FastAPI()
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
+# Enums para categorização
+class TransactionType(str, Enum):
+    ENTRADA = "entrada"
+    SAIDA = "saida"
 
-# Define Models
-class StatusCheck(BaseModel):
+class TransactionCategory(str, Enum):
+    # Entradas
+    VENDA_OCULOS = "venda_oculos"
+    VENDA_LENTES = "venda_lentes"
+    VENDA_ACESSORIOS = "venda_acessorios"
+    SERVICO_EXAME = "servico_exame"
+    SERVICO_CONSULTA = "servico_consulta"
+    OUTROS_SERVICOS = "outros_servicos"
+    
+    # Saídas
+    CUSTO_PRODUTOS = "custo_produtos"
+    ALUGUEL = "aluguel"
+    SALARIOS = "salarios"
+    ENERGIA = "energia"
+    AGUA = "agua"
+    TELEFONE = "telefone"
+    MARKETING = "marketing"
+    MANUTENCAO = "manutencao"
+    IMPOSTOS = "impostos"
+    OUTROS_CUSTOS = "outros_custos"
+
+class ClientStatus(str, Enum):
+    ADIMPLENTE = "adimplente"
+    INADIMPLENTE = "inadimplente"
+
+# Models
+class Transaction(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    tipo: TransactionType
+    categoria: TransactionCategory
+    descricao: str
+    valor: float
+    data: date
+    cliente_nome: Optional[str] = None
+    cliente_id: Optional[str] = None
+    observacoes: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+class TransactionCreate(BaseModel):
+    tipo: TransactionType
+    categoria: TransactionCategory
+    descricao: str
+    valor: float
+    data: date
+    cliente_nome: Optional[str] = None
+    cliente_id: Optional[str] = None
+    observacoes: Optional[str] = None
 
-# Add your routes to the router instead of directly to app
+class Client(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    nome: str
+    email: Optional[str] = None
+    telefone: Optional[str] = None
+    endereco: Optional[str] = None
+    status: ClientStatus = ClientStatus.ADIMPLENTE
+    valor_devido: float = 0.0
+    data_ultimo_pagamento: Optional[date] = None
+    observacoes: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ClientCreate(BaseModel):
+    nome: str
+    email: Optional[str] = None
+    telefone: Optional[str] = None
+    endereco: Optional[str] = None
+    status: ClientStatus = ClientStatus.ADIMPLENTE
+    valor_devido: float = 0.0
+    data_ultimo_pagamento: Optional[date] = None
+    observacoes: Optional[str] = None
+
+class MonthlyReport(BaseModel):
+    mes: int
+    ano: int
+    total_entradas: float
+    total_saidas: float
+    faturamento_liquido: float
+    transacoes_count: int
+
+# Routes - Dashboard Principal
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "Dashboard Financeiro - Ótica API"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.dict()
-    status_obj = StatusCheck(**status_dict)
-    _ = await db.status_checks.insert_one(status_obj.dict())
-    return status_obj
+# Routes - Transações
+@api_router.post("/transactions", response_model=Transaction)
+async def create_transaction(transaction: TransactionCreate):
+    """Criar nova transação financeira"""
+    transaction_dict = transaction.dict()
+    transaction_obj = Transaction(**transaction_dict)
+    
+    # Converter date para string para MongoDB
+    transaction_data = transaction_obj.dict()
+    transaction_data['data'] = transaction_data['data'].isoformat()
+    
+    await db.transactions.insert_one(transaction_data)
+    return transaction_obj
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    status_checks = await db.status_checks.find().to_list(1000)
-    return [StatusCheck(**status_check) for status_check in status_checks]
+@api_router.get("/transactions", response_model=List[Transaction])
+async def get_transactions(
+    skip: int = 0, 
+    limit: int = 100,
+    tipo: Optional[TransactionType] = None,
+    categoria: Optional[TransactionCategory] = None,
+    mes: Optional[int] = None,
+    ano: Optional[int] = None
+):
+    """Listar transações com filtros opcionais"""
+    query = {}
+    
+    if tipo:
+        query["tipo"] = tipo
+    if categoria:
+        query["categoria"] = categoria
+    if mes and ano:
+        # Filtrar por mês/ano
+        start_date = f"{ano}-{mes:02d}-01"
+        if mes == 12:
+            end_date = f"{ano+1}-01-01"
+        else:
+            end_date = f"{ano}-{mes+1:02d}-01"
+        query["data"] = {"$gte": start_date, "$lt": end_date}
+    
+    transactions = await db.transactions.find(query).skip(skip).limit(limit).sort("data", -1).to_list(limit)
+    
+    # Converter string data de volta para date
+    for transaction in transactions:
+        if isinstance(transaction['data'], str):
+            transaction['data'] = datetime.fromisoformat(transaction['data']).date()
+    
+    return [Transaction(**transaction) for transaction in transactions]
+
+@api_router.delete("/transactions/{transaction_id}")
+async def delete_transaction(transaction_id: str):
+    """Deletar transação"""
+    result = await db.transactions.delete_one({"id": transaction_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Transação não encontrada")
+    return {"message": "Transação deletada com sucesso"}
+
+# Routes - Relatórios
+@api_router.get("/reports/monthly")
+async def get_monthly_reports(ano: Optional[int] = None):
+    """Relatório mensal de entradas e saídas"""
+    if not ano:
+        ano = datetime.now().year
+    
+    pipeline = [
+        {
+            "$match": {
+                "data": {
+                    "$regex": f"^{ano}"
+                }
+            }
+        },
+        {
+            "$addFields": {
+                "date_obj": {"$dateFromString": {"dateString": "$data"}}
+            }
+        },
+        {
+            "$group": {
+                "_id": {"$month": "$date_obj"},
+                "entradas": {
+                    "$sum": {
+                        "$cond": [{"$eq": ["$tipo", "entrada"]}, "$valor", 0]
+                    }
+                },
+                "saidas": {
+                    "$sum": {
+                        "$cond": [{"$eq": ["$tipo", "saida"]}, "$valor", 0]
+                    }
+                },
+                "total_transacoes": {"$sum": 1}
+            }
+        },
+        {
+            "$sort": {"_id": 1}
+        }
+    ]
+    
+    result = await db.transactions.aggregate(pipeline).to_list(12)
+    
+    monthly_data = []
+    for item in result:
+        monthly_data.append({
+            "mes": item["_id"],
+            "ano": ano,
+            "total_entradas": round(item["entradas"], 2),
+            "total_saidas": round(item["saidas"], 2),
+            "faturamento_liquido": round(item["entradas"] - item["saidas"], 2),
+            "transacoes_count": item["total_transacoes"]
+        })
+    
+    return monthly_data
+
+@api_router.get("/reports/dashboard")
+async def get_dashboard_data():
+    """Dados principais para o dashboard"""
+    current_date = datetime.now()
+    current_month = current_date.month
+    current_year = current_date.year
+    
+    # Dados do mês atual
+    current_month_str = f"{current_year}-{current_month:02d}"
+    
+    pipeline_current = [
+        {
+            "$match": {
+                "data": {"$regex": f"^{current_month_str}"}
+            }
+        },
+        {
+            "$group": {
+                "_id": "$tipo",
+                "total": {"$sum": "$valor"}
+            }
+        }
+    ]
+    
+    current_month_data = await db.transactions.aggregate(pipeline_current).to_list(10)
+    
+    entradas_mes = 0
+    saidas_mes = 0
+    
+    for item in current_month_data:
+        if item["_id"] == "entrada":
+            entradas_mes = item["total"]
+        elif item["_id"] == "saida":
+            saidas_mes = item["total"]
+    
+    # Total de clientes inadimplentes
+    inadimplentes_count = await db.clients.count_documents({"status": "inadimplente"})
+    valor_total_devido = await db.clients.aggregate([
+        {"$match": {"status": "inadimplente"}},
+        {"$group": {"_id": None, "total": {"$sum": "$valor_devido"}}}
+    ]).to_list(1)
+    
+    valor_devido = valor_total_devido[0]["total"] if valor_total_devido else 0
+    
+    return {
+        "mes_atual": {
+            "entradas": round(entradas_mes, 2),
+            "saidas": round(saidas_mes, 2),
+            "faturamento_liquido": round(entradas_mes - saidas_mes, 2)
+        },
+        "inadimplentes": {
+            "quantidade": inadimplentes_count,
+            "valor_total_devido": round(valor_devido, 2)
+        }
+    }
+
+# Routes - Clientes
+@api_router.post("/clients", response_model=Client)
+async def create_client(client: ClientCreate):
+    """Criar novo cliente"""
+    client_dict = client.dict()
+    client_obj = Client(**client_dict)
+    
+    client_data = client_obj.dict()
+    if client_data.get('data_ultimo_pagamento'):
+        client_data['data_ultimo_pagamento'] = client_data['data_ultimo_pagamento'].isoformat()
+    
+    await db.clients.insert_one(client_data)
+    return client_obj
+
+@api_router.get("/clients", response_model=List[Client])
+async def get_clients(
+    skip: int = 0,
+    limit: int = 100,
+    status: Optional[ClientStatus] = None
+):
+    """Listar clientes"""
+    query = {}
+    if status:
+        query["status"] = status
+    
+    clients = await db.clients.find(query).skip(skip).limit(limit).sort("nome", 1).to_list(limit)
+    
+    for client in clients:
+        if client.get('data_ultimo_pagamento') and isinstance(client['data_ultimo_pagamento'], str):
+            client['data_ultimo_pagamento'] = datetime.fromisoformat(client['data_ultimo_pagamento']).date()
+    
+    return [Client(**client) for client in clients]
+
+@api_router.put("/clients/{client_id}", response_model=Client)
+async def update_client(client_id: str, client_update: ClientCreate):
+    """Atualizar cliente"""
+    client_data = client_update.dict()
+    if client_data.get('data_ultimo_pagamento'):
+        client_data['data_ultimo_pagamento'] = client_data['data_ultimo_pagamento'].isoformat()
+    
+    result = await db.clients.update_one(
+        {"id": client_id},
+        {"$set": client_data}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+    
+    updated_client = await db.clients.find_one({"id": client_id})
+    if updated_client['data_ultimo_pagamento'] and isinstance(updated_client['data_ultimo_pagamento'], str):
+        updated_client['data_ultimo_pagamento'] = datetime.fromisoformat(updated_client['data_ultimo_pagamento']).date()
+    
+    return Client(**updated_client)
+
+@api_router.delete("/clients/{client_id}")
+async def delete_client(client_id: str):
+    """Deletar cliente"""
+    result = await db.clients.delete_one({"id": client_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+    return {"message": "Cliente deletado com sucesso"}
 
 # Include the router in the main app
 app.include_router(api_router)
