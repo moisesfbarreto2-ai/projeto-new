@@ -274,6 +274,31 @@ async def delete_transaction(transaction_id: str):
         raise HTTPException(status_code=404, detail="Transação não encontrada")
     return {"message": "Transação deletada com sucesso"}
 
+@api_router.put("/transactions/{transaction_id}", response_model=Transaction)
+async def update_transaction(transaction_id: str, transaction_update: TransactionUpdate):
+    """Atualizar transação"""
+    update_data = {k: v for k, v in transaction_update.dict().items() if v is not None}
+    
+    if update_data.get('data'):
+        update_data['data'] = update_data['data'].isoformat()
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Nenhum campo para atualizar")
+    
+    result = await db.transactions.update_one(
+        {"id": transaction_id},
+        {"$set": update_data}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Transação não encontrada")
+    
+    updated_transaction = await db.transactions.find_one({"id": transaction_id})
+    if isinstance(updated_transaction['data'], str):
+        updated_transaction['data'] = datetime.fromisoformat(updated_transaction['data']).date()
+    
+    return Transaction(**updated_transaction)
+
 # Routes - Relatórios
 @api_router.get("/reports/monthly")
 async def get_monthly_reports(ano: Optional[int] = None):
