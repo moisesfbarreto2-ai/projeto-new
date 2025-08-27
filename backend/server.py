@@ -445,22 +445,26 @@ async def get_clients(
     return [Client(**client) for client in clients]
 
 @api_router.put("/clients/{client_id}", response_model=Client)
-async def update_client(client_id: str, client_update: ClientCreate):
+async def update_client(client_id: str, client_update: ClientUpdate):
     """Atualizar cliente"""
-    client_data = client_update.dict()
-    if client_data.get('data_ultimo_pagamento'):
-        client_data['data_ultimo_pagamento'] = client_data['data_ultimo_pagamento'].isoformat()
+    update_data = {k: v for k, v in client_update.dict().items() if v is not None}
+    
+    if update_data.get('data_ultimo_pagamento'):
+        update_data['data_ultimo_pagamento'] = update_data['data_ultimo_pagamento'].isoformat()
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Nenhum campo para atualizar")
     
     result = await db.clients.update_one(
         {"id": client_id},
-        {"$set": client_data}
+        {"$set": update_data}
     )
     
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
     
     updated_client = await db.clients.find_one({"id": client_id})
-    if updated_client['data_ultimo_pagamento'] and isinstance(updated_client['data_ultimo_pagamento'], str):
+    if updated_client.get('data_ultimo_pagamento') and isinstance(updated_client['data_ultimo_pagamento'], str):
         updated_client['data_ultimo_pagamento'] = datetime.fromisoformat(updated_client['data_ultimo_pagamento']).date()
     
     return Client(**updated_client)
