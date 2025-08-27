@@ -477,6 +477,92 @@ async def delete_client(client_id: str):
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
     return {"message": "Cliente deletado com sucesso"}
 
+# Routes - Exportação de dados
+@api_router.get("/export/transactions")
+async def export_transactions():
+    """Exportar todas as transações para CSV"""
+    transactions = await db.transactions.find().sort("data", -1).to_list(None)
+    
+    # Converter para formato de exportação
+    export_data = []
+    for transaction in transactions:
+        export_data.append({
+            "ID": transaction["id"],
+            "Data": transaction["data"],
+            "Tipo": transaction["tipo"].title(),
+            "Categoria": transaction["categoria"].replace("_", " ").title(),
+            "Descrição": transaction["descricao"],
+            "Valor": transaction["valor"],
+            "Cliente": transaction.get("cliente_nome", ""),
+            "Observações": transaction.get("observacoes", ""),
+            "Data Criação": transaction["created_at"]
+        })
+    
+    return {"data": export_data, "total": len(export_data)}
+
+@api_router.get("/export/clients")
+async def export_clients():
+    """Exportar todos os clientes para CSV"""
+    clients = await db.clients.find().sort("nome", 1).to_list(None)
+    
+    # Converter para formato de exportação
+    export_data = []
+    for client in clients:
+        export_data.append({
+            "ID": client["id"],
+            "Nome": client["nome"],
+            "Email": client.get("email", ""),
+            "Telefone": client.get("telefone", ""),
+            "Endereço": client.get("endereco", ""),
+            "Status": client["status"].title(),
+            "Valor Devido": client["valor_devido"],
+            "Último Pagamento": client.get("data_ultimo_pagamento", ""),
+            
+            # Campos para análise
+            "Estado Civil": client.get("estado_civil", "").replace("_", " ").title() if client.get("estado_civil") else "",
+            "Número de Filhos": client.get("numero_filhos", 0),
+            "Escolaridade": client.get("escolaridade", "").replace("_", " ").title() if client.get("escolaridade") else "",
+            "Tem Cartão de Crédito": "Sim" if client.get("tem_cartao_credito") else "Não" if client.get("tem_cartao_credito") is not None else "",
+            "Renda Bruta": client.get("renda_bruta", ""),
+            "Idade": client.get("idade", ""),
+            "Frequência de Compra": client.get("frequencia_compra", "").replace("_", " ").title() if client.get("frequencia_compra") else "",
+            "Quantidade de Compras": client.get("quantidade_compras", 0),
+            "Tipo de Compra": client.get("tipo_compra", "").title() if client.get("tipo_compra") else "",
+            "Origem do Cliente": client.get("origem_cliente", "").replace("_", " ").title() if client.get("origem_cliente") else "",
+            
+            "Observações": client.get("observacoes", ""),
+            "Data Criação": client["created_at"]
+        })
+    
+    return {"data": export_data, "total": len(export_data)}
+
+@api_router.get("/export/dashboard")
+async def export_dashboard_data():
+    """Exportar dados completos do dashboard"""
+    # Obter dados do dashboard
+    dashboard_data = await get_dashboard_data()
+    monthly_data = await get_monthly_reports()
+    
+    # Estatísticas de clientes por perfil
+    client_stats = await db.clients.aggregate([
+        {
+            "$group": {
+                "_id": "$tipo_compra",
+                "count": {"$sum": 1},
+                "valor_total_devido": {"$sum": "$valor_devido"},
+                "idade_media": {"$avg": "$idade"},
+                "renda_media": {"$avg": "$renda_bruta"}
+            }
+        }
+    ]).to_list(10)
+    
+    return {
+        "dashboard": dashboard_data,
+        "relatorio_mensal": monthly_data,
+        "estatisticas_clientes": client_stats,
+        "export_timestamp": datetime.utcnow().isoformat()
+    }
+
 # Include the router in the main app
 app.include_router(api_router)
 
