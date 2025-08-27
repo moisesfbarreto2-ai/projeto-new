@@ -65,6 +65,42 @@ class ClientStatus(str, Enum):
     ADIMPLENTE = "adimplente"
     INADIMPLENTE = "inadimplente"
 
+class EstadoCivil(str, Enum):
+    SOLTEIRO = "solteiro"
+    CASADO = "casado"
+    DIVORCIADO = "divorciado"
+    VIUVO = "viuvo"
+    UNIAO_ESTAVEL = "uniao_estavel"
+
+class Escolaridade(str, Enum):
+    FUNDAMENTAL = "fundamental"
+    MEDIO = "medio"
+    SUPERIOR = "superior"
+    TECNICO = "tecnico"
+    POS_GRADUACAO = "pos_graduacao"
+
+class FrequenciaCompra(str, Enum):
+    PRIMEIRA_VEZ = "primeira_vez"
+    ESPORADICO = "esporadico"
+    REGULAR = "regular"
+    FREQUENTE = "frequente"
+
+class TipoCompra(str, Enum):
+    ECONOMICO = "economico"
+    PADRAO = "padrao"
+    PREMIUM = "premium"
+    LUXO = "luxo"
+
+class OrigemCliente(str, Enum):
+    AMIGO = "amigo"
+    INSTAGRAM = "instagram"
+    WHATSAPP = "whatsapp"
+    FACEBOOK = "facebook"
+    GOOGLE = "google"
+    PLACA_LOJA = "placa_loja"
+    PASSANDO_RUA = "passando_rua"
+    OUTROS = "outros"
+
 # Models
 class Transaction(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
