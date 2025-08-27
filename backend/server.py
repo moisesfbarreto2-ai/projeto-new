@@ -124,6 +124,16 @@ class TransactionCreate(BaseModel):
     cliente_id: Optional[str] = None
     observacoes: Optional[str] = None
 
+class TransactionUpdate(BaseModel):
+    tipo: Optional[TransactionType] = None
+    categoria: Optional[TransactionCategory] = None
+    descricao: Optional[str] = None
+    valor: Optional[float] = None
+    data: Optional[date] = None
+    cliente_nome: Optional[str] = None
+    cliente_id: Optional[str] = None
+    observacoes: Optional[str] = None
+
 class Client(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     nome: str
@@ -133,6 +143,19 @@ class Client(BaseModel):
     status: ClientStatus = ClientStatus.ADIMPLENTE
     valor_devido: float = 0.0
     data_ultimo_pagamento: Optional[date] = None
+    
+    # Campos para análise de clusterização
+    estado_civil: Optional[EstadoCivil] = None
+    numero_filhos: Optional[int] = 0
+    escolaridade: Optional[Escolaridade] = None
+    tem_cartao_credito: Optional[bool] = None
+    renda_bruta: Optional[float] = None
+    idade: Optional[int] = None
+    frequencia_compra: Optional[FrequenciaCompra] = None
+    quantidade_compras: Optional[int] = 0
+    tipo_compra: Optional[TipoCompra] = None
+    origem_cliente: Optional[OrigemCliente] = None
+    
     observacoes: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -144,6 +167,42 @@ class ClientCreate(BaseModel):
     status: ClientStatus = ClientStatus.ADIMPLENTE
     valor_devido: float = 0.0
     data_ultimo_pagamento: Optional[date] = None
+    
+    # Campos para análise de clusterização
+    estado_civil: Optional[EstadoCivil] = None
+    numero_filhos: Optional[int] = 0
+    escolaridade: Optional[Escolaridade] = None
+    tem_cartao_credito: Optional[bool] = None
+    renda_bruta: Optional[float] = None
+    idade: Optional[int] = None
+    frequencia_compra: Optional[FrequenciaCompra] = None
+    quantidade_compras: Optional[int] = 0
+    tipo_compra: Optional[TipoCompra] = None
+    origem_cliente: Optional[OrigemCliente] = None
+    
+    observacoes: Optional[str] = None
+
+class ClientUpdate(BaseModel):
+    nome: Optional[str] = None
+    email: Optional[str] = None
+    telefone: Optional[str] = None
+    endereco: Optional[str] = None
+    status: Optional[ClientStatus] = None
+    valor_devido: Optional[float] = None
+    data_ultimo_pagamento: Optional[date] = None
+    
+    # Campos para análise de clusterização
+    estado_civil: Optional[EstadoCivil] = None
+    numero_filhos: Optional[int] = None
+    escolaridade: Optional[Escolaridade] = None
+    tem_cartao_credito: Optional[bool] = None
+    renda_bruta: Optional[float] = None
+    idade: Optional[int] = None
+    frequencia_compra: Optional[FrequenciaCompra] = None
+    quantidade_compras: Optional[int] = None
+    tipo_compra: Optional[TipoCompra] = None
+    origem_cliente: Optional[OrigemCliente] = None
+    
     observacoes: Optional[str] = None
 
 class MonthlyReport(BaseModel):
