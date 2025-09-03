@@ -2,8 +2,8 @@ from dotenv import load_dotenv
 import os
 
 # Carrega as variáveis do arquivo .env para o ambiente
-load_dotenv()from fastapi import FastAPI, APIRouter, HTTPException
-from dotenv import load_dotenv
+load_dotenv()
+from fastapi import FastAPI, APIRouter, HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
