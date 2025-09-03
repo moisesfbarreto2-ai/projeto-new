@@ -31,7 +31,7 @@ load_dotenv(ROOT_DIR / '.env')
 # MongoDB connection
 # mongo_url = os.environ['MONGO_URL']
 mongo_uri = "mongodb+srv://Alisson:alisson1348@cluster0.a1u7oyb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-client = AsyncIOMotorClient(mongo_url)
+client = AsyncIOMotorClient(mongo_uri)
 # db = client[os.environ['DB_NAME']]
 db = client["test_database"]
 
