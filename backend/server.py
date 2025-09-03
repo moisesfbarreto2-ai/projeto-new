@@ -38,8 +38,10 @@ app = FastAPI()
 from fastapi.middleware.cors import CORSMiddleware
 
 # Define de quais origens (sites) o backend aceitará conexões
+# COMO DEVE FICAR (Correto)
 origins = [
-    "https://projeto-new-zeta.vercel.app", # A URL do seu frontend na Vercel
+    "https://projeto-new-zeta.vercel.app",
+    "https://projeto-9e77qzrbn-moises-projects-db5afa67.vercel.app"
 ]
 
 app.add_middleware(
