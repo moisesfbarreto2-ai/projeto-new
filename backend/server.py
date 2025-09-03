@@ -1,4 +1,8 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from dotenv import load_dotenv
+import os
+
+# Carrega as variáveis do arquivo .env para o ambiente
+load_dotenv()from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -31,7 +35,20 @@ db = client[os.environ['DB_NAME']]
 
 # Create the main app without a prefix
 app = FastAPI()
+from fastapi.middleware.cors import CORSMiddleware
 
+# Define de quais origens (sites) o backend aceitará conexões
+origins = [
+    "https://projeto-new-zeta.vercel.app", # A URL do seu frontend na Vercel
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
