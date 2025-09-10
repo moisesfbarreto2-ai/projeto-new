@@ -7,10 +7,8 @@ import {
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
-
 // Configuração de cores para o tema preto e dourado
 const COLORS = {
   primary: '#FFD700',
@@ -21,7 +19,6 @@ const COLORS = {
   textSecondary: '#CCCCCC',
   accent: '#B8860B'
 };
-
 const CHART_COLORS = ['#FFD700', '#FFA500', '#B8860B', '#DAA520', '#F4A460'];
 
 function App() {
@@ -36,6 +33,7 @@ function App() {
 
   // Estados para os filtros de clientes
   const [filtroStatusCliente, setFiltroStatusCliente] = useState('todos'); // 'todos', 'adimplente', 'inadimplente'
+  const [filtroNomeCliente, setFiltroNomeCliente] = useState('');
 
   // --- ALTERAÇÃO 1: Adicionados 'states' para controlar os filtros de transações ---
   const [filtroCliente, setFiltroCliente] = useState('');
@@ -63,7 +61,7 @@ function App() {
     estado_civil: '',
     numero_filhos: '',
     escolaridade: '',
-    tem_cartao_credito: '', // Valor inicial vazio
+    tem_cartao_credito: '',
     renda_bruta: '',
     idade: '',
     frequencia_compra: '',
@@ -200,9 +198,14 @@ function App() {
     }
   };
 
+  // --- ALTERAÇÃO 3: Função de carregar clientes agora usa os filtros ---
   const loadClients = async () => {
     try {
-      const response = await axios.get(`${API}/clients`);
+      const params = new URLSearchParams();
+      if (filtroNomeCliente) params.append('nome', filtroNomeCliente);
+      // Removido o limite para carregar todos os clientes
+      
+      const response = await axios.get(`${API}/clients?${params.toString()}`);
       setClients(response.data);
       setLoading(false);
     } catch (error) {
@@ -249,7 +252,7 @@ function App() {
   const handleClientSubmit = async (e) => {
     e.preventDefault();
     try {
-      // --- ALTERAÇÃO 3: Corrigido o tratamento dos dados do cliente ---
+      // --- ALTERAÇÃO 4: Corrigido o tratamento dos dados do cliente ---
       const formData = {
         ...clientForm,
         // Trata campos numéricos vazios como 0
@@ -295,12 +298,25 @@ function App() {
       loadClients(); // Recarrega todos os clientes
       loadDashboardData();
     } catch (error) {
-      // --- ALTERAÇÃO 4: Mostrar mensagem de erro mais detalhada ---
+      // --- ALTERAÇÃO 5: Mostrar mensagem de erro mais detalhada ---
       console.error('Erro ao salvar cliente:', error);
       // Tenta obter a mensagem de erro do backend
       let errorMessage = 'Erro ao salvar cliente!';
-      if (error.response && error.response.data && error.response.data.detail) {
-        errorMessage = `Erro: ${error.response.data.detail}`;
+      if (error.response && error.response.data) {
+        // Verifica se há detalhes de erro específicos
+        if (error.response.data.detail) {
+          const detail = error.response.data.detail;
+          if (Array.isArray(detail)) {
+            // Se for um array, junte os erros com uma nova linha
+            errorMessage = `Erro: ${detail.map(d => d.msg || JSON.stringify(d)).join(', ')}`;
+          } else {
+            // Se for um único objeto, tente mostrar os campos mais relevantes
+            errorMessage = `Erro: ${detail.msg || JSON.stringify(detail)}`;
+          }
+        } else {
+          // Se não houver 'detail', mostra a resposta completa
+          errorMessage = `Erro: ${JSON.stringify(error.response.data)}`;
+        }
       } else if (error.message) {
         errorMessage = `Erro: ${error.message}`;
       }
@@ -410,7 +426,6 @@ function App() {
     });
   };
 
-  // --- ALTERAÇÃO 5: Corrigida a função de exportação ---
   const exportData = async (type) => {
     try {
       const response = await axios.get(`${API}/export/${type}`);
@@ -946,14 +961,14 @@ function App() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Nome *
+                    Nome
                   </label>
                   <input
                     type="text"
                     value={clientForm.nome}
                     onChange={(e) => setClientForm({...clientForm, nome: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-red-400"
-                    required
+                    // Removido required
                   />
                 </div>
                 <div>
@@ -1188,6 +1203,49 @@ function App() {
                 </div>
               </form>
             </div>
+
+            {/* --- ALTERAÇÃO 8: FORMULÁRIO DE FILTRO ADICIONADO PARA CLIENTES --- */}
+            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              <h3 className="text-lg font-medium text-yellow-400 mb-4">🔍 Filtrar Clientes</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Nome do Cliente</label>
+                  <input 
+                    type="text"
+                    placeholder="Digite para buscar..."
+                    value={filtroNomeCliente}
+                    onChange={(e) => setFiltroNomeCliente(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Status</label>
+                  <select
+                    value={filtroStatusCliente}
+                    onChange={(e) => setFiltroStatusCliente(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  >
+                    <option value="todos">Todos</option>
+                    <option value="adimplente">Adimplente</option>
+                    <option value="inadimplente">Inadimplente</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex space-x-2 mt-4">
+                  <button onClick={loadClients} className="px-6 py-2 bg-yellow-500 text-black font-medium rounded-md hover:bg-yellow-400 transition-colors duration-200">
+                    🔎 Filtrar
+                  </button>
+                  <button onClick={() => {
+                    setFiltroNomeCliente('');
+                    setFiltroStatusCliente('todos');
+                    // Recarrega todos os clientes após limpar os filtros
+                    loadClients();
+                  }} className="px-6 py-2 bg-gray-600 text-white font-medium rounded-md hover:bg-gray-500 transition-colors duration-200">
+                    ❌ Limpar
+                  </button>
+              </div>
+            </div>
+
             {/* Lista de Clientes */}
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
               <h3 className="text-lg font-medium text-yellow-400 mb-4">👥 Lista de Clientes ({clientesFiltrados.length})</h3>
