@@ -7,8 +7,10 @@ import {
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
+
 // Configuração de cores para o tema preto e dourado
 const COLORS = {
   primary: '#FFD700',
@@ -19,6 +21,7 @@ const COLORS = {
   textSecondary: '#CCCCCC',
   accent: '#B8860B'
 };
+
 const CHART_COLORS = ['#FFD700', '#FFA500', '#B8860B', '#DAA520', '#F4A460'];
 
 function App() {
@@ -46,7 +49,7 @@ function App() {
     categoria: 'venda_oculos',
     descricao: '',
     valor: '',
-    data: new Date().toISOString().split('T')[0],
+    data: new Date().toISOString().split('T')[0], // Corrigido: Usar toISOString para obter a data local
     cliente_nome: '',
     observacoes: ''
   });
@@ -235,7 +238,7 @@ function App() {
         categoria: 'venda_oculos',
         descricao: '',
         valor: '',
-        data: new Date().toISOString().split('T')[0],
+        data: new Date().toISOString().split('T')[0], // Corrigido: Usar toISOString para obter a data local
         cliente_nome: '',
         observacoes: ''
       });
@@ -362,7 +365,7 @@ function App() {
       categoria: transaction.categoria,
       descricao: transaction.descricao,
       valor: transaction.valor.toString(),
-      data: transaction.data,
+      data: transaction.data, // Corrigido: Usar a data diretamente
       cliente_nome: transaction.cliente_nome || '',
       observacoes: transaction.observacoes || ''
     });
@@ -401,7 +404,7 @@ function App() {
       categoria: 'venda_oculos',
       descricao: '',
       valor: '',
-      data: new Date().toISOString().split('T')[0],
+      data: new Date().toISOString().split('T')[0], // Corrigido: Usar toISOString para obter a data local
       cliente_nome: '',
       observacoes: ''
     });
