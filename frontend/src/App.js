@@ -34,6 +34,11 @@ function App() {
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [editingClient, setEditingClient] = useState(null);
 
+  // --- ALTERAÇÃO 1: Adicionados 'states' para controlar os filtros ---
+  const [filtroCliente, setFiltroCliente] = useState('');
+  const [filtroDataInicio, setFiltroDataInicio] = useState('');
+  const [filtroDataFim, setFiltroDataFim] = useState('');
+
   // Estados para formularios
   const [transactionForm, setTransactionForm] = useState({
     tipo: 'entrada',
@@ -133,8 +138,8 @@ function App() {
   useEffect(() => {
     loadDashboardData();
     loadMonthlyReports();
-    loadTransactions();
-    loadClients();
+    loadTransactions(); // Carrega todas as transações
+    loadClients(); // Carrega todos os clientes
   }, []);
 
   const loadDashboardData = async () => {
@@ -150,13 +155,11 @@ function App() {
     try {
       const currentYear = new Date().getFullYear();
       const response = await axios.get(`${API}/reports/monthly?ano=${currentYear}`);
-      
       // Preencher meses vazios
       const monthNames = [
         'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
         'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
       ];
-      
       const completeData = monthNames.map((name, index) => {
         const month = index + 1;
         const existing = response.data.find(item => item.mes === month);
@@ -172,16 +175,22 @@ function App() {
           transacoes_count: 0
         };
       });
-      
       setMonthlyData(completeData);
     } catch (error) {
       console.error('Erro ao carregar relatórios mensais:', error);
     }
   };
 
+  // --- ALTERAÇÃO 2: Função de carregar transações agora usa os filtros ---
   const loadTransactions = async () => {
     try {
-      const response = await axios.get(`${API}/transactions?limit=50`);
+      const params = new URLSearchParams();
+      if (filtroCliente) params.append('cliente_nome', filtroCliente);
+      if (filtroDataInicio) params.append('data_inicio', filtroDataInicio);
+      if (filtroDataFim) params.append('data_fim', filtroDataFim);
+      // Removido o limite para carregar todas as transações
+      
+      const response = await axios.get(`${API}/transactions?${params.toString()}`);
       setTransactions(response.data);
     } catch (error) {
       console.error('Erro ao carregar transações:', error);
@@ -206,7 +215,6 @@ function App() {
         ...transactionForm,
         valor: parseFloat(transactionForm.valor)
       };
-      
       if (editingTransaction) {
         await axios.put(`${API}/transactions/${editingTransaction.id}`, formData);
         setEditingTransaction(null);
@@ -215,7 +223,6 @@ function App() {
         await axios.post(`${API}/transactions`, formData);
         alert('Transação adicionada com sucesso!');
       }
-      
       // Limpar formulário
       setTransactionForm({
         tipo: 'entrada',
@@ -226,11 +233,10 @@ function App() {
         cliente_nome: '',
         observacoes: ''
       });
-      
       // Recarregar dados
       loadDashboardData();
       loadMonthlyReports();
-      loadTransactions();
+      loadTransactions(); // Recarrega todas as transações
     } catch (error) {
       console.error('Erro ao salvar transação:', error);
       alert('Erro ao salvar transação!');
@@ -249,7 +255,6 @@ function App() {
         renda_bruta: parseFloat(clientForm.renda_bruta || 0),
         tem_cartao_credito: clientForm.tem_cartao_credito === 'true' ? true : clientForm.tem_cartao_credito === 'false' ? false : null
       };
-      
       if (editingClient) {
         await axios.put(`${API}/clients/${editingClient.id}`, formData);
         setEditingClient(null);
@@ -258,7 +263,6 @@ function App() {
         await axios.post(`${API}/clients`, formData);
         alert('Cliente adicionado com sucesso!');
       }
-      
       // Limpar formulário
       setClientForm({
         nome: '',
@@ -279,8 +283,7 @@ function App() {
         origem_cliente: '',
         observacoes: ''
       });
-      
-      loadClients();
+      loadClients(); // Recarrega todos os clientes
       loadDashboardData();
     } catch (error) {
       console.error('Erro ao salvar cliente:', error);
@@ -293,11 +296,10 @@ function App() {
       try {
         await axios.delete(`${API}/transactions/${transactionId}`);
         alert('Transação deletada com sucesso!');
-        
         // Recarregar dados
         loadDashboardData();
         loadMonthlyReports();
-        loadTransactions();
+        loadTransactions(); // Recarrega todas as transações
       } catch (error) {
         console.error('Erro ao deletar transação:', error);
         alert('Erro ao deletar transação!');
@@ -310,9 +312,8 @@ function App() {
       try {
         await axios.delete(`${API}/clients/${clientId}`);
         alert('Cliente deletado com sucesso!');
-        
         // Recarregar dados
-        loadClients();
+        loadClients(); // Recarrega todos os clientes
         loadDashboardData();
       } catch (error) {
         console.error('Erro ao deletar cliente:', error);
@@ -394,22 +395,18 @@ function App() {
     try {
       const response = await axios.get(`${API}/export/${type}`);
       const data = response.data.data;
-      
       // Criar CSV
       if (data.length === 0) {
         alert('Não há dados para exportar');
         return;
       }
-      
       const headers = Object.keys(data[0]).join(',');
       const rows = data.map(row => 
         Object.values(row).map(value => 
           typeof value === 'string' && value.includes(',') ? `"${value}"` : value
         ).join(',')
       );
-      
       const csv = [headers, ...rows].join('\n');
-      
       // Download do arquivo
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
@@ -420,7 +417,6 @@ function App() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
       alert(`Dados exportados com sucesso! (${data.length} registros)`);
     } catch (error) {
       console.error('Erro ao exportar dados:', error);
@@ -465,7 +461,6 @@ function App() {
           </div>
         </div>
       </header>
-
       {/* Navigation */}
       <nav className="bg-gray-800 border-b border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -491,7 +486,6 @@ function App() {
           </div>
         </div>
       </nav>
-
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {activeTab === 'dashboard' && (
@@ -518,7 +512,6 @@ function App() {
                     </div>
                   </div>
                 </div>
-
                 <div className="bg-gray-800 rounded-lg p-6 border border-yellow-400">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
@@ -538,7 +531,6 @@ function App() {
                     </div>
                   </div>
                 </div>
-
                 <div className="bg-gray-800 rounded-lg p-6 border border-yellow-400">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
@@ -560,7 +552,6 @@ function App() {
                 </div>
               </div>
             )}
-
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Gráfico de Linha - Evolução Mensal */}
@@ -616,7 +607,6 @@ function App() {
                   </LineChart>
                 </ResponsiveContainer>
               </div>
-
               {/* Gráfico de Barras - Comparação */}
               <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
                 <h3 className="text-lg font-medium text-yellow-400 mb-4">📊 Comparação Mensal</h3>
@@ -661,7 +651,6 @@ function App() {
             </div>
           </div>
         )}
-
         {activeTab === 'transacoes' && (
           <div className="space-y-6">
             {/* Formulário de Nova/Editar Transação */}
@@ -687,7 +676,6 @@ function App() {
                     <option value="saida">🔴 Saída</option>
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Categoria
@@ -702,7 +690,6 @@ function App() {
                     ))}
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Valor (R$)
@@ -716,7 +703,6 @@ function App() {
                     required
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Data
@@ -729,7 +715,6 @@ function App() {
                     required
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Descrição
@@ -742,7 +727,6 @@ function App() {
                     required
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Cliente (opcional)
@@ -754,7 +738,6 @@ function App() {
                     className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
                   />
                 </div>
-
                 <div className="md:col-span-2 lg:col-span-3">
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Observações
@@ -766,7 +749,6 @@ function App() {
                     rows="2"
                   />
                 </div>
-
                 <div className="md:col-span-2 lg:col-span-3 flex space-x-2">
                   <button
                     type="submit"
@@ -785,6 +767,55 @@ function App() {
                   )}
                 </div>
               </form>
+            </div>
+
+            {/* --- ALTERAÇÃO 3: FORMULÁRIO DE FILTRO ADICIONADO --- */}
+            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              <h3 className="text-lg font-medium text-yellow-400 mb-4">🔍 Filtrar Transações</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Nome do Cliente</label>
+                  <input 
+                    type="text"
+                    placeholder="Digite para buscar..."
+                    value={filtroCliente}
+                    onChange={(e) => setFiltroCliente(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Data de Início</label>
+                  <input 
+                    type="date"
+                    value={filtroDataInicio}
+                    onChange={(e) => setFiltroDataInicio(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Data de Fim</label>
+                  <input 
+                    type="date"
+                    value={filtroDataFim}
+                    onChange={(e) => setFiltroDataFim(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  />
+                </div>
+              </div>
+              <div className="flex space-x-2 mt-4">
+                  <button onClick={loadTransactions} className="px-6 py-2 bg-yellow-500 text-black font-medium rounded-md hover:bg-yellow-400 transition-colors duration-200">
+                    🔎 Filtrar
+                  </button>
+                  <button onClick={() => {
+                    setFiltroCliente('');
+                    setFiltroDataInicio('');
+                    setFiltroDataFim('');
+                    // Recarrega todas as transações após limpar os filtros
+                    loadTransactions();
+                  }} className="px-6 py-2 bg-gray-600 text-white font-medium rounded-md hover:bg-gray-500 transition-colors duration-200">
+                    ❌ Limpar
+                  </button>
+              </div>
             </div>
 
             {/* Lista de Transações */}
@@ -868,7 +899,6 @@ function App() {
             </div>
           </div>
         )}
-
         {activeTab === 'inadimplentes' && (
           <div className="space-y-6">
             {/* Formulário de Novo/Editar Cliente */}
@@ -881,7 +911,6 @@ function App() {
                 <div className="md:col-span-2 lg:col-span-3">
                   <h4 className="text-md font-medium text-yellow-400 mb-3">📋 Dados Básicos</h4>
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Nome *
@@ -894,7 +923,6 @@ function App() {
                     required
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Email
@@ -906,7 +934,6 @@ function App() {
                     className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-red-400"
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Telefone
@@ -918,7 +945,6 @@ function App() {
                     className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-red-400"
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Status
@@ -932,7 +958,6 @@ function App() {
                     <option value="inadimplente">⚠️ Inadimplente</option>
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Valor Devido (R$)
@@ -945,7 +970,6 @@ function App() {
                     className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-red-400"
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Endereço
@@ -957,12 +981,10 @@ function App() {
                     className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-red-400"
                   />
                 </div>
-
                 {/* Dados para Clusterização */}
                 <div className="md:col-span-2 lg:col-span-3 mt-4">
                   <h4 className="text-md font-medium text-yellow-400 mb-3">🎯 Dados para Análise de Clusterização</h4>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Idade
@@ -976,7 +998,6 @@ function App() {
                     className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-red-400"
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Estado Civil
@@ -992,7 +1013,6 @@ function App() {
                     ))}
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Número de Filhos
@@ -1006,7 +1026,6 @@ function App() {
                     className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-red-400"
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Escolaridade
@@ -1022,7 +1041,6 @@ function App() {
                     ))}
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Tem Cartão de Crédito
@@ -1037,7 +1055,6 @@ function App() {
                     <option value="false">Não</option>
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Renda Bruta (R$)
@@ -1051,7 +1068,6 @@ function App() {
                     className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-red-400"
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Frequência de Compra
@@ -1067,7 +1083,6 @@ function App() {
                     ))}
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Quantidade de Compras
@@ -1080,7 +1095,6 @@ function App() {
                     className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-red-400"
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Tipo de Compra (Perfil)
@@ -1096,7 +1110,6 @@ function App() {
                     ))}
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Como Encontrou a Loja
@@ -1112,7 +1125,6 @@ function App() {
                     ))}
                   </select>
                 </div>
-
                 <div className="md:col-span-2 lg:col-span-3">
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Observações
@@ -1124,7 +1136,6 @@ function App() {
                     rows="3"
                   />
                 </div>
-
                 <div className="md:col-span-2 lg:col-span-3 flex space-x-2">
                   <button
                     type="submit"
@@ -1144,11 +1155,9 @@ function App() {
                 </div>
               </form>
             </div>
-
             {/* Lista de Clientes */}
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
               <h3 className="text-lg font-medium text-yellow-400 mb-4">👥 Lista de Clientes ({clients.length})</h3>
-              
               {/* Filtros rápidos */}
               <div className="mb-4 flex flex-wrap gap-2">
                 <button className="px-3 py-1 bg-gray-700 text-yellow-400 rounded-md text-sm hover:bg-gray-600">
@@ -1161,7 +1170,6 @@ function App() {
                   Inadimplentes ({clients.filter(c => c.status === 'inadimplente').length})
                 </button>
               </div>
-
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-700">
                   <thead className="bg-gray-700">
@@ -1249,12 +1257,10 @@ function App() {
             </div>
           </div>
         )}
-
         {activeTab === 'relatorios' && (
           <div className="space-y-6">
             <div className="bg-gray-800 rounded-lg p-6 border border-yellow-400">
               <h3 className="text-lg font-medium text-yellow-400 mb-4">📊 Relatórios Detalhados</h3>
-              
               {/* Resumo Anual */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-gray-700 rounded-lg p-4 text-center">
@@ -1263,21 +1269,18 @@ function App() {
                   </div>
                   <div className="text-sm text-gray-300">Total Entradas</div>
                 </div>
-                
                 <div className="bg-gray-700 rounded-lg p-4 text-center">
                   <div className="text-2xl font-bold text-red-400">
                     R$ {monthlyData.reduce((acc, item) => acc + item.total_saidas, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </div>
                   <div className="text-sm text-gray-300">Total Saídas</div>
                 </div>
-                
                 <div className="bg-gray-700 rounded-lg p-4 text-center">
                   <div className="text-2xl font-bold text-yellow-400">
                     R$ {monthlyData.reduce((acc, item) => acc + item.faturamento_liquido, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </div>
                   <div className="text-sm text-gray-300">Lucro Líquido</div>
                 </div>
-                
                 <div className="bg-gray-700 rounded-lg p-4 text-center">
                   <div className="text-2xl font-bold text-blue-400">
                     {monthlyData.reduce((acc, item) => acc + item.transacoes_count, 0)}
@@ -1285,7 +1288,6 @@ function App() {
                   <div className="text-sm text-gray-300">Total Transações</div>
                 </div>
               </div>
-
               {/* Tabela Detalhada por Mês */}
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-700">
