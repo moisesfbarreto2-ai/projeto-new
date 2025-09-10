@@ -379,7 +379,7 @@ async def export_transactions():
     transactions = await db.transactions.find().sort("data", -1).to_list(None)
     return [Transaction(**t).dict() for t in transactions]
 
-@api_g_router.et("/export/clients")
+@api_router.get("/export/clients")
 async def export_clients():
     """Exportar todos os clientes para CSV"""
     clients = await db.clients.find().sort("nome", 1).to_list(None)
