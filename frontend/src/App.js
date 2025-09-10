@@ -34,14 +34,23 @@ function App() {
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [editingClient, setEditingClient] = useState(null);
 
+  // --- ALTERAÇÃO 1: Adicionados 'states' para controlar os filtros de transações ---
+  const [filtroCliente, setFiltroCliente] = useState('');
+  const [filtroDataInicio, setFiltroDataInicio] = useState('');
+  const [filtroDataFim, setFiltroDataFim] = useState('');
+
+  // --- ALTERAÇÃO 2: Adicionados 'states' para controlar os filtros de clientes ---
+  const [filtroNomeCliente, setFiltroNomeCliente] = useState('');
+  const [filtroStatusCliente, setFiltroStatusCliente] = useState('todos'); // 'todos', 'adimplente', 'inadimplente'
+
   // Estados para formularios
   const [transactionForm, setTransactionForm] = useState({
     tipo: 'entrada',
     categoria: 'venda_oculos',
     descricao: '',
     valor: '',
-    // --- CORREÇÃO 2: Usar toISOString para obter a data no fuso horário local ---
-    data: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
+    // --- CORREÇÃO: Usar toISOString para obter a data no fuso horário local ---
+    data: new Date().toISOString().split('T')[0],
     cliente_nome: '',
     observacoes: ''
   });
@@ -134,8 +143,8 @@ function App() {
   useEffect(() => {
     loadDashboardData();
     loadMonthlyReports();
-    loadTransactions();
-    loadClients();
+    loadTransactions(); // Carrega todas as transações (sem limite)
+    loadClients(); // Carrega todos os clientes
   }, []);
 
   const loadDashboardData = async () => {
@@ -177,20 +186,31 @@ function App() {
     }
   };
 
+  // --- ALTERAÇÃO 3: Função de carregar transações agora usa os filtros ---
   const loadTransactions = async () => {
     try {
-      // --- CORREÇÃO 1: Remover o limite para carregar todas as transações ---
-      // const response = await axios.get(`${API}/transactions?limit=50`);
-      const response = await axios.get(`${API}/transactions`);
+      const params = new URLSearchParams();
+      if (filtroCliente) params.append('cliente_nome', filtroCliente);
+      if (filtroDataInicio) params.append('data_inicio', filtroDataInicio);
+      if (filtroDataFim) params.append('data_fim', filtroDataFim);
+      // Removido o limite para carregar todas as transações
+      
+      const response = await axios.get(`${API}/transactions?${params.toString()}`);
       setTransactions(response.data);
     } catch (error) {
       console.error('Erro ao carregar transações:', error);
     }
   };
 
+  // --- ALTERAÇÃO 4: Função de carregar clientes agora usa os filtros ---
   const loadClients = async () => {
     try {
-      const response = await axios.get(`${API}/clients`);
+      const params = new URLSearchParams();
+      if (filtroNomeCliente) params.append('nome', filtroNomeCliente);
+      // O filtro de status pode ser implementado no backend se suportado, ou filtrado no frontend
+      // Aqui, vamos filtrar no frontend para manter a simplicidade do backend
+      
+      const response = await axios.get(`${API}/clients?${params.toString()}`);
       setClients(response.data);
       setLoading(false);
     } catch (error) {
@@ -220,7 +240,7 @@ function App() {
         categoria: 'venda_oculos',
         descricao: '',
         valor: '',
-        // --- CORREÇÃO 2: Usar toISOString para obter a data no fuso horário local ---
+        // --- CORREÇÃO: Usar toISOString para obter a data no fuso horário local ---
         data: new Date().toISOString().split('T')[0],
         cliente_nome: '',
         observacoes: ''
@@ -228,7 +248,7 @@ function App() {
       // Recarregar dados
       loadDashboardData();
       loadMonthlyReports();
-      loadTransactions();
+      loadTransactions(); // Recarrega todas as transações
     } catch (error) {
       console.error('Erro ao salvar transação:', error);
       alert('Erro ao salvar transação!');
@@ -238,7 +258,7 @@ function App() {
   const handleClientSubmit = async (e) => {
     e.preventDefault();
     try {
-      // --- CORREÇÃO 3: Tratar dados do cliente para campos opcionais e tipos corretos ---
+      // --- CORREÇÃO: Tratar dados do cliente para campos opcionais e tipos corretos ---
       const formData = {
         ...clientForm,
         // Trata campos numéricos vazios como 0
@@ -283,11 +303,11 @@ function App() {
         origem_cliente: '',
         observacoes: ''
       });
-      loadClients();
+      loadClients(); // Recarrega todos os clientes
       loadDashboardData();
     } catch (error) {
       console.error('Erro ao salvar cliente:', error);
-      // --- CORREÇÃO 4: Melhorar a mensagem de erro ---
+      // --- CORREÇÃO: Melhorar a mensagem de erro ---
       let errorMessage = 'Erro ao salvar cliente!';
       if (error.response && error.response.data && error.response.data.detail) {
         // Se for um array de erros de validação
@@ -312,7 +332,7 @@ function App() {
         // Recarregar dados
         loadDashboardData();
         loadMonthlyReports();
-        loadTransactions();
+        loadTransactions(); // Recarrega todas as transações
       } catch (error) {
         console.error('Erro ao deletar transação:', error);
         alert('Erro ao deletar transação!');
@@ -326,7 +346,7 @@ function App() {
         await axios.delete(`${API}/clients/${clientId}`);
         alert('Cliente deletado com sucesso!');
         // Recarregar dados
-        loadClients();
+        loadClients(); // Recarrega todos os clientes
         loadDashboardData();
       } catch (error) {
         console.error('Erro ao deletar cliente:', error);
@@ -342,7 +362,7 @@ function App() {
       categoria: transaction.categoria,
       descricao: transaction.descricao,
       valor: transaction.valor.toString(),
-      // --- CORREÇÃO 2: Usar a data diretamente (já está no formato correto do backend) ---
+      // --- CORREÇÃO: Usar a data diretamente (já está no formato correto do backend) ---
       data: transaction.data,
       cliente_nome: transaction.cliente_nome || '',
       observacoes: transaction.observacoes || ''
@@ -382,7 +402,7 @@ function App() {
       categoria: 'venda_oculos',
       descricao: '',
       valor: '',
-      // --- CORREÇÃO 2: Usar toISOString para obter a data no fuso horário local ---
+      // --- CORREÇÃO: Usar toISOString para obter a data no fuso horário local ---
       data: new Date().toISOString().split('T')[0],
       cliente_nome: '',
       observacoes: ''
@@ -428,7 +448,7 @@ function App() {
             : stringValue;
         }).join(',')
       );
-      // --- CORREÇÃO 5: Usar '\n' para quebras de linha ---
+      // --- CORREÇÃO: Usar '\n' para quebras de linha ---
       const csv = [headers, ...rows].join('\n');
       // Download do arquivo
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -446,6 +466,11 @@ function App() {
       alert('Erro ao exportar dados!');
     }
   };
+
+  // --- ALTERAÇÃO 5: Lógica para filtrar clientes no frontend ---
+  const clientesFiltrados = filtroStatusCliente === 'todos' 
+    ? clients 
+    : clients.filter(client => client.status === filtroStatusCliente);
 
   if (loading) {
     return (
@@ -730,7 +755,6 @@ function App() {
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Data
                   </label>
-                  {/* --- CORREÇÃO 2: Usar type="date" mas garantir formato YYYY-MM-DD --- */}
                   <input
                     type="date"
                     value={transactionForm.data}
@@ -792,6 +816,56 @@ function App() {
                 </div>
               </form>
             </div>
+
+            {/* --- ALTERAÇÃO 6: FORMULÁRIO DE FILTRO ADICIONADO PARA TRANSAÇÕES --- */}
+            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              <h3 className="text-lg font-medium text-yellow-400 mb-4">🔍 Filtrar Transações</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Nome do Cliente</label>
+                  <input 
+                    type="text"
+                    placeholder="Digite para buscar..."
+                    value={filtroCliente}
+                    onChange={(e) => setFiltroCliente(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Data de Início</label>
+                  <input 
+                    type="date"
+                    value={filtroDataInicio}
+                    onChange={(e) => setFiltroDataInicio(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Data de Fim</label>
+                  <input 
+                    type="date"
+                    value={filtroDataFim}
+                    onChange={(e) => setFiltroDataFim(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  />
+                </div>
+              </div>
+              <div className="flex space-x-2 mt-4">
+                  <button onClick={loadTransactions} className="px-6 py-2 bg-yellow-500 text-black font-medium rounded-md hover:bg-yellow-400 transition-colors duration-200">
+                    🔎 Filtrar
+                  </button>
+                  <button onClick={() => {
+                    setFiltroCliente('');
+                    setFiltroDataInicio('');
+                    setFiltroDataFim('');
+                    // Recarrega todas as transações após limpar os filtros
+                    loadTransactions();
+                  }} className="px-6 py-2 bg-gray-600 text-white font-medium rounded-md hover:bg-gray-500 transition-colors duration-200">
+                    ❌ Limpar
+                  </button>
+              </div>
+            </div>
+
             {/* Lista de Transações */}
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
               <h3 className="text-lg font-medium text-yellow-400 mb-4">📋 Transações ({transactions.length})</h3>
@@ -826,7 +900,7 @@ function App() {
                     {transactions.map((transaction) => (
                       <tr key={transaction.id} className="hover:bg-gray-700">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                          {/* --- CORREÇÃO 2: Exibir a data corretamente --- */}
+                          {/* --- CORREÇÃO: Exibir a data corretamente --- */}
                           {transaction.data}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -1130,18 +1204,82 @@ function App() {
                 </div>
               </form>
             </div>
+
+            {/* --- ALTERAÇÃO 7: FORMULÁRIO DE FILTRO ADICIONADO PARA CLIENTES --- */}
+            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              <h3 className="text-lg font-medium text-yellow-400 mb-4">🔍 Filtrar Clientes</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Nome do Cliente</label>
+                  <input 
+                    type="text"
+                    placeholder="Digite para buscar..."
+                    value={filtroNomeCliente}
+                    onChange={(e) => setFiltroNomeCliente(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Status</label>
+                  <select
+                    value={filtroStatusCliente}
+                    onChange={(e) => setFiltroStatusCliente(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  >
+                    <option value="todos">Todos</option>
+                    <option value="adimplente">Adimplente</option>
+                    <option value="inadimplente">Inadimplente</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex space-x-2 mt-4">
+                  <button onClick={loadClients} className="px-6 py-2 bg-yellow-500 text-black font-medium rounded-md hover:bg-yellow-400 transition-colors duration-200">
+                    🔎 Filtrar
+                  </button>
+                  <button onClick={() => {
+                    setFiltroNomeCliente('');
+                    setFiltroStatusCliente('todos');
+                    // Recarrega todos os clientes após limpar os filtros
+                    loadClients();
+                  }} className="px-6 py-2 bg-gray-600 text-white font-medium rounded-md hover:bg-gray-500 transition-colors duration-200">
+                    ❌ Limpar
+                  </button>
+              </div>
+            </div>
+
             {/* Lista de Clientes */}
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-              <h3 className="text-lg font-medium text-yellow-400 mb-4">👥 Lista de Clientes ({clients.length})</h3>
+              <h3 className="text-lg font-medium text-yellow-400 mb-4">👥 Lista de Clientes ({clientesFiltrados.length})</h3>
               {/* Filtros rápidos */}
               <div className="mb-4 flex flex-wrap gap-2">
-                <button className="px-3 py-1 bg-gray-700 text-yellow-400 rounded-md text-sm hover:bg-gray-600">
+                <button 
+                  onClick={() => setFiltroStatusCliente('todos')}
+                  className={`px-3 py-1 rounded-md text-sm ${
+                    filtroStatusCliente === 'todos' 
+                      ? 'bg-yellow-500 text-black' 
+                      : 'bg-gray-700 text-yellow-400 hover:bg-gray-600'
+                  }`}
+                >
                   Todos ({clients.length})
                 </button>
-                <button className="px-3 py-1 bg-gray-700 text-green-400 rounded-md text-sm hover:bg-gray-600">
+                <button 
+                  onClick={() => setFiltroStatusCliente('adimplente')}
+                  className={`px-3 py-1 rounded-md text-sm ${
+                    filtroStatusCliente === 'adimplente' 
+                      ? 'bg-green-500 text-white' 
+                      : 'bg-gray-700 text-green-400 hover:bg-gray-600'
+                  }`}
+                >
                   Adimplentes ({clients.filter(c => c.status === 'adimplente').length})
                 </button>
-                <button className="px-3 py-1 bg-gray-700 text-red-400 rounded-md text-sm hover:bg-gray-600">
+                <button 
+                  onClick={() => setFiltroStatusCliente('inadimplente')}
+                  className={`px-3 py-1 rounded-md text-sm ${
+                    filtroStatusCliente === 'inadimplente' 
+                      ? 'bg-red-500 text-white' 
+                      : 'bg-gray-700 text-red-400 hover:bg-gray-600'
+                  }`}
+                >
                   Inadimplentes ({clients.filter(c => c.status === 'inadimplente').length})
                 </button>
               </div>
@@ -1176,7 +1314,7 @@ function App() {
                     </tr>
                   </thead>
                   <tbody className="bg-gray-800 divide-y divide-gray-700">
-                    {clients.map((client) => (
+                    {clientesFiltrados.map((client) => (
                       <tr key={client.id} className="hover:bg-gray-700">
                         <td className="px-4 py-4 whitespace-nowrap">
                           <div>
