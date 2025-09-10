@@ -424,39 +424,59 @@ function App() {
   };
 
   // Corrigido: Função de exportação com tratamento adequado de CSV
- const exportData = async (type) => {
+const exportData = async (type) => {
   try {
     const response = await axios.get(`${API}/export/${type}`);
-    const data = response.data.data || response.data; // Lida com diferentes formatos de resposta
-    // Criar CSV
+    // Verificar se a resposta tem o formato esperado
+    let data;
+    if (response.data && Array.isArray(response.data)) {
+      // Caso 1: A resposta é diretamente o array de dados
+      data = response.data;
+    } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+      // Caso 2: A resposta é um objeto com uma propriedade 'data' que contém o array
+      data = response.data.data;
+    } else {
+      // Caso 3: Formato inesperado
+      console.error("Formato de dados inesperado na resposta da API:", response.data);
+      alert('Erro: Formato de dados inesperado ao exportar.');
+      return;
+    }
+
+    // Verificar se há dados para exportar
     if (!data || data.length === 0) {
       alert('Não há dados para exportar');
       return;
     }
-    
-    // Função auxiliar para escapar valores CSV
+
+    // Função auxiliar para escapar valores CSV corretamente
     const escapeCsvValue = (value) => {
-      if (value === null || value === undefined) return '';
-      const stringValue = String(value);
-      // se o valor contiver vírgula, aspas ou quebra de linha, envolva em aspas e escape as aspas duplas
-      if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-        return `"${value.replace(/"/g, '""')}"`;
+      if (value === null || value === undefined) {
+        return '';
       }
-      return value;
+      // Converter para string
+      let stringValue = String(value);
+      // Se contiver caracteres especiais do CSV (vírgula, aspa, quebra de linha), envolver em aspas e escapar aspas
+      if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+        stringValue = `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
     };
 
-    // Obter o nomes das colunas (cabeçal)
-    const headers = Object.keys(data[0]).join(',');
-    
-    // Gerar as linhas de dados
-    const rows = data.map(row => 
-      Object.values(row).map(value => escapeCsvValue(value)).join(',')
-    );
-    
-    // Corrigido: Usar '\n' para quebras de linha
-    const csvContent = [headers, ...rows].join('\n');
-    
-    // Download do arquivo
+    // Obter os cabeçalhos das colunas a partir das chaves do primeiro objeto
+    const headers = Object.keys(data[0]);
+
+    // Criar a linha de cabeçalho
+    const csvHeaderRow = headers.map(header => escapeCsvValue(header)).join(',');
+
+    // Criar as linhas de dados
+    const csvDataRows = data.map(row => {
+      return headers.map(header => escapeCsvValue(row[header])).join(',');
+    });
+
+    // Combinar cabeçalho e dados
+    const csvContent = [csvHeaderRow, ...csvDataRows].join('\n');
+
+    // Criar e fazer o download do arquivo
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -466,10 +486,28 @@ function App() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    alert(`Dados exportados com sucesso! (${data.length} registro)`);
+    
+    alert(`Dados exportados com sucesso! (${data.length} registros)`);
   } catch (error) {
     console.error('Erro ao exportar dados:', error);
-    alert('Erro ao exportar dados!');
+    // Verificar se o erro tem uma mensagem específica
+    let errorMessage = 'Erro ao exportar dados!';
+    if (error.response) {
+      // Erro vindo da resposta HTTP
+      errorMessage = `Erro ${error.response.status}: ${error.response.statusText}`;
+      if (error.response.data && typeof error.response.data === 'string') {
+        errorMessage += ` - ${error.response.data}`;
+      } else if (error.response.data && error.response.data.detail) {
+        errorMessage += ` - ${error.response.data.detail}`;
+      }
+    } else if (error.request) {
+      // Erro na requisição (ex: sem conexão)
+      errorMessage = 'Erro de conexão ao tentar exportar os dados.';
+    } else if (error.message) {
+      // Outro tipo de erro
+      errorMessage = `Erro: ${error.message}`;
+    }
+    alert(errorMessage);
   }
 };
 
