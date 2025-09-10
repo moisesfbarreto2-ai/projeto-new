@@ -63,7 +63,7 @@ function App() {
     estado_civil: '',
     numero_filhos: '',
     escolaridade: '',
-    tem_cartao_credito: '',
+    tem_cartao_credito: '', // Valor inicial vazio
     renda_bruta: '',
     idade: '',
     frequencia_compra: '',
@@ -249,15 +249,21 @@ function App() {
   const handleClientSubmit = async (e) => {
     e.preventDefault();
     try {
+      // --- ALTERAÇÃO 3: Corrigido o tratamento dos dados do cliente ---
       const formData = {
         ...clientForm,
-        valor_devido: parseFloat(clientForm.valor_devido || 0),
-        numero_filhos: parseInt(clientForm.numero_filhos || 0),
-        idade: parseInt(clientForm.idade || 0),
-        quantidade_compras: parseInt(clientForm.quantidade_compras || 0),
-        renda_bruta: parseFloat(clientForm.renda_bruta || 0),
-        tem_cartao_credito: clientForm.tem_cartao_credito === 'true' ? true : clientForm.tem_cartao_credito === 'false' ? false : null
+        // Trata campos numéricos vazios como 0
+        valor_devido: clientForm.valor_devido === '' ? 0 : parseFloat(clientForm.valor_devido || 0),
+        numero_filhos: clientForm.numero_filhos === '' ? 0 : parseInt(clientForm.numero_filhos || 0),
+        idade: clientForm.idade === '' ? 0 : parseInt(clientForm.idade || 0),
+        quantidade_compras: clientForm.quantidade_compras === '' ? 0 : parseInt(clientForm.quantidade_compras || 0),
+        renda_bruta: clientForm.renda_bruta === '' ? 0 : parseFloat(clientForm.renda_bruta || 0),
+        // Trata tem_cartao_credito corretamente
+        tem_cartao_credito: clientForm.tem_cartao_credito === '' ? null :
+                           clientForm.tem_cartao_credito === 'true' ? true :
+                           clientForm.tem_cartao_credito === 'false' ? false : null
       };
+
       if (editingClient) {
         await axios.put(`${API}/clients/${editingClient.id}`, formData);
         setEditingClient(null);
@@ -277,7 +283,7 @@ function App() {
         estado_civil: '',
         numero_filhos: '',
         escolaridade: '',
-        tem_cartao_credito: '',
+        tem_cartao_credito: '', // Reseta para vazio
         renda_bruta: '',
         idade: '',
         frequencia_compra: '',
@@ -289,8 +295,16 @@ function App() {
       loadClients(); // Recarrega todos os clientes
       loadDashboardData();
     } catch (error) {
+      // --- ALTERAÇÃO 4: Mostrar mensagem de erro mais detalhada ---
       console.error('Erro ao salvar cliente:', error);
-      alert('Erro ao salvar cliente!');
+      // Tenta obter a mensagem de erro do backend
+      let errorMessage = 'Erro ao salvar cliente!';
+      if (error.response && error.response.data && error.response.data.detail) {
+        errorMessage = `Erro: ${error.response.data.detail}`;
+      } else if (error.message) {
+        errorMessage = `Erro: ${error.message}`;
+      }
+      alert(errorMessage);
     }
   };
 
@@ -350,7 +364,9 @@ function App() {
       estado_civil: client.estado_civil || '',
       numero_filhos: client.numero_filhos?.toString() || '',
       escolaridade: client.escolaridade || '',
-      tem_cartao_credito: client.tem_cartao_credito !== null ? client.tem_cartao_credito.toString() : '',
+      // Converte booleano/null para string vazia para o select
+      tem_cartao_credito: client.tem_cartao_credito === true ? 'true' : 
+                          client.tem_cartao_credito === false ? 'false' : '',
       renda_bruta: client.renda_bruta?.toString() || '',
       idade: client.idade?.toString() || '',
       frequencia_compra: client.frequencia_compra || '',
@@ -383,7 +399,7 @@ function App() {
       estado_civil: '',
       numero_filhos: '',
       escolaridade: '',
-      tem_cartao_credito: '',
+      tem_cartao_credito: '', // Reseta para vazio
       renda_bruta: '',
       idade: '',
       frequencia_compra: '',
@@ -394,13 +410,13 @@ function App() {
     });
   };
 
-  // --- ALTERAÇÃO 3: Corrigida a função de exportação ---
+  // --- ALTERAÇÃO 5: Corrigida a função de exportação ---
   const exportData = async (type) => {
     try {
       const response = await axios.get(`${API}/export/${type}`);
-      const data = response.data.data;
+      const data = response.data.data || response.data; // Lida com diferentes formatos de resposta
       // Criar CSV
-      if (data.length === 0) {
+      if (!data || data.length === 0) {
         alert('Não há dados para exportar');
         return;
       }
@@ -433,10 +449,13 @@ function App() {
     }
   };
 
-  // --- ALTERAÇÃO 4: Função para filtrar clientes por status ---
-  const clientesFiltrados = filtroStatusCliente === 'todos' 
-    ? clients 
-    : clients.filter(client => client.status === filtroStatusCliente);
+  // --- ALTERAÇÃO 6: Lógica para filtrar clientes ---
+  const clientesFiltrados = clients.filter(client => {
+    if (filtroStatusCliente === 'todos') {
+      return true;
+    }
+    return client.status === filtroStatusCliente;
+  });
 
   if (loading) {
     return (
@@ -783,7 +802,7 @@ function App() {
               </form>
             </div>
 
-            {/* --- ALTERAÇÃO 5: FORMULÁRIO DE FILTRO ADICIONADO --- */}
+            {/* --- ALTERAÇÃO 7: FORMULÁRIO DE FILTRO ADICIONADO --- */}
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
               <h3 className="text-lg font-medium text-yellow-400 mb-4">🔍 Filtrar Transações</h3>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
