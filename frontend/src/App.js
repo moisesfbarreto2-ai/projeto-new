@@ -34,12 +34,10 @@ function App() {
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [editingClient, setEditingClient] = useState(null);
 
-  // --- ALTERAÇÃO 1: Adicionados 'states' para controlar os filtros de transações ---
+  // Estados para os filtros
   const [filtroCliente, setFiltroCliente] = useState('');
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
   const [filtroDataFim, setFiltroDataFim] = useState('');
-
-  // --- ALTERAÇÃO 2: Adicionados 'states' para controlar os filtros de clientes ---
   const [filtroNomeCliente, setFiltroNomeCliente] = useState('');
   const [filtroStatusCliente, setFiltroStatusCliente] = useState('todos'); // 'todos', 'adimplente', 'inadimplente'
 
@@ -49,7 +47,7 @@ function App() {
     categoria: 'venda_oculos',
     descricao: '',
     valor: '',
-    // --- CORREÇÃO: Usar toISOString para obter a data no fuso horário local ---
+    // Corrigido: Usar toISOString para obter a data no fuso horário local
     data: new Date().toISOString().split('T')[0],
     cliente_nome: '',
     observacoes: ''
@@ -186,7 +184,6 @@ function App() {
     }
   };
 
-  // --- ALTERAÇÃO 3: Função de carregar transações agora usa os filtros ---
   const loadTransactions = async () => {
     try {
       const params = new URLSearchParams();
@@ -202,13 +199,11 @@ function App() {
     }
   };
 
-  // --- ALTERAÇÃO 4: Função de carregar clientes agora usa os filtros ---
   const loadClients = async () => {
     try {
       const params = new URLSearchParams();
       if (filtroNomeCliente) params.append('nome', filtroNomeCliente);
-      // O filtro de status pode ser implementado no backend se suportado, ou filtrado no frontend
-      // Aqui, vamos filtrar no frontend para manter a simplicidade do backend
+      // Removido o limite para carregar todos os clientes
       
       const response = await axios.get(`${API}/clients?${params.toString()}`);
       setClients(response.data);
@@ -240,7 +235,7 @@ function App() {
         categoria: 'venda_oculos',
         descricao: '',
         valor: '',
-        // --- CORREÇÃO: Usar toISOString para obter a data no fuso horário local ---
+        // Corrigido: Usar toISOString para obter a data no fuso horário local
         data: new Date().toISOString().split('T')[0],
         cliente_nome: '',
         observacoes: ''
@@ -258,7 +253,7 @@ function App() {
   const handleClientSubmit = async (e) => {
     e.preventDefault();
     try {
-      // --- CORREÇÃO: Tratar dados do cliente para campos opcionais e tipos corretos ---
+      // Corrigido: Tratar dados do cliente para campos opcionais e tipos corretos
       const formData = {
         ...clientForm,
         // Trata campos numéricos vazios como 0
@@ -307,7 +302,7 @@ function App() {
       loadDashboardData();
     } catch (error) {
       console.error('Erro ao salvar cliente:', error);
-      // --- CORREÇÃO: Melhorar a mensagem de erro ---
+      // Melhorar a mensagem de erro
       let errorMessage = 'Erro ao salvar cliente!';
       if (error.response && error.response.data && error.response.data.detail) {
         // Se for um array de erros de validação
@@ -362,7 +357,7 @@ function App() {
       categoria: transaction.categoria,
       descricao: transaction.descricao,
       valor: transaction.valor.toString(),
-      // --- CORREÇÃO: Usar a data diretamente (já está no formato correto do backend) ---
+      // Corrigido: Usar a data diretamente (já está no formato correto do backend)
       data: transaction.data,
       cliente_nome: transaction.cliente_nome || '',
       observacoes: transaction.observacoes || ''
@@ -402,7 +397,7 @@ function App() {
       categoria: 'venda_oculos',
       descricao: '',
       valor: '',
-      // --- CORREÇÃO: Usar toISOString para obter a data no fuso horário local ---
+      // Corrigido: Usar toISOString para obter a data no fuso horário local
       data: new Date().toISOString().split('T')[0],
       cliente_nome: '',
       observacoes: ''
@@ -428,12 +423,13 @@ function App() {
     });
   };
 
+  // Corrigido: Função de exportação com tratamento adequado de CSV
   const exportData = async (type) => {
     try {
       const response = await axios.get(`${API}/export/${type}`);
-      const data = response.data.data;
+      const data = response.data.data || response.data; // Lida com diferentes formatos de resposta
       // Criar CSV
-      if (data.length === 0) {
+      if (!data || data.length === 0) {
         alert('Não há dados para exportar');
         return;
       }
@@ -448,10 +444,10 @@ function App() {
             : stringValue;
         }).join(',')
       );
-      // --- CORREÇÃO: Usar '\n' para quebras de linha ---
-      const csv = [headers, ...rows].join('\n');
+      // Corrigido: Usar '\n' para quebras de linha
+      const csvContent = [headers, ...rows].join('\n');
       // Download do arquivo
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
@@ -467,7 +463,7 @@ function App() {
     }
   };
 
-  // --- ALTERAÇÃO 5: Lógica para filtrar clientes no frontend ---
+  // Lógica para filtrar clientes no frontend
   const clientesFiltrados = filtroStatusCliente === 'todos' 
     ? clients 
     : clients.filter(client => client.status === filtroStatusCliente);
@@ -817,7 +813,7 @@ function App() {
               </form>
             </div>
 
-            {/* --- ALTERAÇÃO 6: FORMULÁRIO DE FILTRO ADICIONADO PARA TRANSAÇÕES --- */}
+            {/* Formulário de Filtro para Transações */}
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
               <h3 className="text-lg font-medium text-yellow-400 mb-4">🔍 Filtrar Transações</h3>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
@@ -900,7 +896,7 @@ function App() {
                     {transactions.map((transaction) => (
                       <tr key={transaction.id} className="hover:bg-gray-700">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                          {/* --- CORREÇÃO: Exibir a data corretamente --- */}
+                          {/* Corrigido: Exibir a data corretamente */}
                           {transaction.data}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -1205,7 +1201,7 @@ function App() {
               </form>
             </div>
 
-            {/* --- ALTERAÇÃO 7: FORMULÁRIO DE FILTRO ADICIONADO PARA CLIENTES --- */}
+            {/* Formulário de Filtro para Clientes */}
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
               <h3 className="text-lg font-medium text-yellow-400 mb-4">🔍 Filtrar Clientes</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
