@@ -424,44 +424,54 @@ function App() {
   };
 
   // Corrigido: Função de exportação com tratamento adequado de CSV
-  const exportData = async (type) => {
-    try {
-      const response = await axios.get(`${API}/export/${type}`);
-      const data = response.data.data || response.data; // Lida com diferentes formatos de resposta
-      // Criar CSV
-      if (!data || data.length === 0) {
-        alert('Não há dados para exportar');
-        return;
-      }
-      const headers = Object.keys(data[0]).join(',');
-      const rows = data.map(row => 
-        Object.values(row).map(value => {
-          if (value === null || value === undefined) return '';
-          const stringValue = String(value);
-          // Escapar aspas duplas e envolver em aspas se necessário
-          return stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n') 
-            ? `"${stringValue.replace(/"/g, '""')}"` 
-            : stringValue;
-        }).join(',')
-      );
-      // Corrigido: Usar '\n' para quebras de linha
-      const csvContent = [headers, ...rows].join('\n');
-      // Download do arquivo
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `${type}_${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      alert(`Dados exportados com sucesso! (${data.length} registros)`);
-    } catch (error) {
-      console.error('Erro ao exportar dados:', error);
-      alert('Erro ao exportar dados!');
+ const exportData = async (type) => {
+  try {
+    const response = await axios.get(`${API}/export/${type}`);
+    const data = response.data.data || response.data; // Lida com diferentes formatos de resposta
+    // Criar CSV
+    if (!data || data.length === 0) {
+      alert('Não há dados para exportar');
+      return;
     }
-  };
+    
+    // Função auxiliar para escapar valores CSV
+    const escapeCsvValue = (value) => {
+      if (value === null || value === undefined) return '';
+      const stringValue = String(value);
+      // se o valor contiver vírgula, aspas ou quebra de linha, envolva em aspas e escape as aspas duplas
+      if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+        return `"${value.replace(/"/g, '""')}"`;
+      }
+      return value;
+    };
+
+    // Obter o nomes das colunas (cabeçal)
+    const headers = Object.keys(data[0]).join(',');
+    
+    // Gerar as linhas de dados
+    const rows = data.map(row => 
+      Object.values(row).map(value => escapeCsvValue(value)).join(',')
+    );
+    
+    // Corrigido: Usar '\n' para quebras de linha
+    const csvContent = [headers, ...rows].join('\n');
+    
+    // Download do arquivo
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${type}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    alert(`Dados exportados com sucesso! (${data.length} registro)`);
+  } catch (error) {
+    console.error('Erro ao exportar dados:', error);
+    alert('Erro ao exportar dados!');
+  }
+};
 
   // Lógica para filtrar clientes no frontend
   const clientesFiltrados = filtroStatusCliente === 'todos' 
