@@ -34,7 +34,10 @@ function App() {
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [editingClient, setEditingClient] = useState(null);
 
-  // --- ALTERAÇÃO 1: Adicionados 'states' para controlar os filtros ---
+  // Estados para os filtros de clientes
+  const [filtroStatusCliente, setFiltroStatusCliente] = useState('todos'); // 'todos', 'adimplente', 'inadimplente'
+
+  // --- ALTERAÇÃO 1: Adicionados 'states' para controlar os filtros de transações ---
   const [filtroCliente, setFiltroCliente] = useState('');
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
   const [filtroDataFim, setFiltroDataFim] = useState('');
@@ -138,7 +141,7 @@ function App() {
   useEffect(() => {
     loadDashboardData();
     loadMonthlyReports();
-    loadTransactions(); // Carrega todas as transações
+    loadTransactions(); // Carrega todas as transações (sem limite)
     loadClients(); // Carrega todos os clientes
   }, []);
 
@@ -391,6 +394,7 @@ function App() {
     });
   };
 
+  // --- ALTERAÇÃO 3: Corrigida a função de exportação ---
   const exportData = async (type) => {
     try {
       const response = await axios.get(`${API}/export/${type}`);
@@ -402,13 +406,18 @@ function App() {
       }
       const headers = Object.keys(data[0]).join(',');
       const rows = data.map(row => 
-        Object.values(row).map(value => 
-          typeof value === 'string' && value.includes(',') ? `"${value}"` : value
-        ).join(',')
+        Object.values(row).map(value => {
+          if (value === null || value === undefined) return '';
+          const stringValue = String(value);
+          // Escapar aspas duplas e envolver em aspas se necessário
+          return stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n') 
+            ? `"${stringValue.replace(/"/g, '""')}"` 
+            : stringValue;
+        }).join(',')
       );
-      const csv = [headers, ...rows].join('\n');
+      const csvContent = [headers, ...rows].join('\n'); // Corrigido: usar '\n' para quebras de linha
       // Download do arquivo
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
@@ -423,6 +432,11 @@ function App() {
       alert('Erro ao exportar dados!');
     }
   };
+
+  // --- ALTERAÇÃO 4: Função para filtrar clientes por status ---
+  const clientesFiltrados = filtroStatusCliente === 'todos' 
+    ? clients 
+    : clients.filter(client => client.status === filtroStatusCliente);
 
   if (loading) {
     return (
@@ -769,7 +783,7 @@ function App() {
               </form>
             </div>
 
-            {/* --- ALTERAÇÃO 3: FORMULÁRIO DE FILTRO ADICIONADO --- */}
+            {/* --- ALTERAÇÃO 5: FORMULÁRIO DE FILTRO ADICIONADO --- */}
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
               <h3 className="text-lg font-medium text-yellow-400 mb-4">🔍 Filtrar Transações</h3>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
@@ -1157,16 +1171,37 @@ function App() {
             </div>
             {/* Lista de Clientes */}
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-              <h3 className="text-lg font-medium text-yellow-400 mb-4">👥 Lista de Clientes ({clients.length})</h3>
+              <h3 className="text-lg font-medium text-yellow-400 mb-4">👥 Lista de Clientes ({clientesFiltrados.length})</h3>
               {/* Filtros rápidos */}
               <div className="mb-4 flex flex-wrap gap-2">
-                <button className="px-3 py-1 bg-gray-700 text-yellow-400 rounded-md text-sm hover:bg-gray-600">
+                <button 
+                  onClick={() => setFiltroStatusCliente('todos')}
+                  className={`px-3 py-1 rounded-md text-sm ${
+                    filtroStatusCliente === 'todos' 
+                      ? 'bg-yellow-500 text-black' 
+                      : 'bg-gray-700 text-yellow-400 hover:bg-gray-600'
+                  }`}
+                >
                   Todos ({clients.length})
                 </button>
-                <button className="px-3 py-1 bg-gray-700 text-green-400 rounded-md text-sm hover:bg-gray-600">
+                <button 
+                  onClick={() => setFiltroStatusCliente('adimplente')}
+                  className={`px-3 py-1 rounded-md text-sm ${
+                    filtroStatusCliente === 'adimplente' 
+                      ? 'bg-green-500 text-white' 
+                      : 'bg-gray-700 text-green-400 hover:bg-gray-600'
+                  }`}
+                >
                   Adimplentes ({clients.filter(c => c.status === 'adimplente').length})
                 </button>
-                <button className="px-3 py-1 bg-gray-700 text-red-400 rounded-md text-sm hover:bg-gray-600">
+                <button 
+                  onClick={() => setFiltroStatusCliente('inadimplente')}
+                  className={`px-3 py-1 rounded-md text-sm ${
+                    filtroStatusCliente === 'inadimplente' 
+                      ? 'bg-red-500 text-white' 
+                      : 'bg-gray-700 text-red-400 hover:bg-gray-600'
+                  }`}
+                >
                   Inadimplentes ({clients.filter(c => c.status === 'inadimplente').length})
                 </button>
               </div>
@@ -1201,7 +1236,7 @@ function App() {
                     </tr>
                   </thead>
                   <tbody className="bg-gray-800 divide-y divide-gray-700">
-                    {clients.map((client) => (
+                    {clientesFiltrados.map((client) => (
                       <tr key={client.id} className="hover:bg-gray-700">
                         <td className="px-4 py-4 whitespace-nowrap">
                           <div>
